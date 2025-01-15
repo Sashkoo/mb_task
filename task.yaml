@@ -14,7 +14,7 @@ spec:
       labels:
         app: web-app
     spec: 
-      affinity:           # Объявляем podAntiAffinity чтобы равномерно распределить поды между нодами
+      affinity:           # Объявляем podAntiAffinity чтобы равномерно распределить поды между нодами.
         podAntiAffinity:
           preferredDuringSchedulingIgnoredDuringExecution:
           - weight: 100
@@ -22,7 +22,7 @@ spec:
               labelSelector:
                 matchLabels:
                   app: web-app
-              topologyKey: "kubernetes.io/hostname" # Здесь нужна метка нод "kubectl get nodes --show-labels"
+              topologyKey: "kubernetes.io/hostname" # Здесь нужна метка нод "kubectl get nodes --show-labels".
       containers:
       - name: web-app
         image: my-web-app:latest
@@ -35,9 +35,7 @@ spec:
           limits:
             memory: "512Mi" # Дополнительная память для пиковых нагрузок.
             cpu: "1" # Увеличиваем лимиты для того чтобы приложение не падало на первых парах работы.
-            
-        # Объявляем пробы для того чтобы при зависании приложения или при других "казусных" проблем под перезапускался.
-        readinessProbe:
+        readinessProbe: # Объявляем пробы для того чтобы при зависании приложения или при других проблемах под перезапускался.
           httpGet:
             path: "/healthz"
             port: 80
