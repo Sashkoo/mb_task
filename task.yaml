@@ -1,0 +1,108 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  namespace: default
+spec:
+  replicas: 4 # Данное кол-во нужно для того чтобы справляться с пиковой нагрузкой в дневное время.
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec: 
+      affinity:           # Объявляем podAntiAffinity чтобы равномерно распределить поды между нодами
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchLabels:
+                  app: web-app
+              topologyKey: "kubernetes.io/hostname" # Здесь нужна метка нод "kubectl get nodes --show-labels"
+      containers:
+      - name: web-app
+        image: my-web-app:latest
+        ports:
+        - containerPort: 80
+        resources:
+          requests:
+            memory: "128Mi" # Минимальное кол-во памяти для того чтобы приложение работало корректно.
+            cpu: "0.1" # Минимум CPU для работы
+          limits:
+            memory: "512Mi" # Дополнительная память для пиковых нагрузок.
+            cpu: "1" # Увеличиваем лимиты для того чтобы приложение не падало на первых парах работы.
+            # Объявляем пробы для того чтобы при зависании приложения или при других "казусных" проблем под перезапускался.
+        readinessProbe:
+          httpGet:
+            path: "/healthz"
+            port: 80
+          initialDelaySeconds: 10 # Увеличиваем задержку для инициализации приложения (чтобы приложение успело запустится).
+          periodSeconds: 5 # Проверяем готовность каждые 5 секунд
+        livenessProbe:
+          httpGet:
+            path: "/healthz"
+            port: 80
+          initialDelaySeconds: 15 # Увеличиваем задержку для инициализации приложения (чтобы приложение успело запустится).
+          periodSeconds: 10 # Проверяем работоспособность каждые 10 секунд
+
+# HPA, Отвечает за автоматическое масштабирование подов.
+---
+apiVersion: autoscaling/v1
+kind: HorizontalPodAutoscaler
+metadata:
+  name: web-app-hpa
+  namespace: default
+spec:
+  scaleTargetRef:  # Определяет какой объект будет масштабироваться
+    apiVersion: apps/v1
+    kind: Deployment
+    name: web-app
+  minReplicas: 1 # Минимальное кол-во подов в недневное время
+  maxReplicas: 4 # До 4 подов днём во время пиковой нагрузки
+  metrics: # Метрика на которую будет смотреть HPA объект.
+  - type: Resource
+    resource:
+      name: cpu # Мониторим процессорное время
+      target:
+        type: Utilization # Мониторинг происходит в процентном соотношении.
+        averageUtilization: 60 # Если средняя загрузка на подах превышает эту отметку, то HPA начнёт добавлять/удалять поды в деплойменте.
+
+--- # Объявляем сервис: он нужен для того чтобы у подов была сетевая взаимосвязь с Ingress
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-app-service
+  namespace: default
+spec:
+  type: ClusterIP
+  selector:
+    app: web-app
+  ports:
+  - protocol: TCP
+    port: 80
+    targetPort: 80
+
+--- # Объявляем ingress контроллер
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: web-app-ingress
+  namespace: default
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+spec:
+  rules:
+  - host: domain.ru
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web-app-service
+            port:
+              number: 80
