@@ -16,7 +16,7 @@ spec:
     spec: 
       affinity:           # Объявляем podAntiAffinity чтобы поды распределялись на разных нодах.
         podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution: # Мягкое правило
+          preferredDuringSchedulingIgnoredDuringExecution: # Для того чтобы scheduler пытался выполнить правило, но если он не сможет его соблюсти, то под всё равно будет запущен.
           - weight: 100
             podAffinityTerm:
               labelSelector:
