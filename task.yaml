@@ -14,15 +14,15 @@ spec:
       labels:
         app: web-app
     spec: 
-      affinity:           # Объявляем podAntiAffinity чтобы равномерно распределить поды между нодами.
+      affinity:           # Объявляем podAntiAffinity чтобы поды распределялись на разных нодах.
         podAntiAffinity:
-          preferredDuringSchedulingIgnoredDuringExecution:
+          preferredDuringSchedulingIgnoredDuringExecution: # Мягкое правило
           - weight: 100
             podAffinityTerm:
               labelSelector:
                 matchLabels:
                   app: web-app
-              topologyKey: "kubernetes.io/hostname" # Здесь нужна метка нод "kubectl get nodes --show-labels".
+              topologyKey: "kubernetes.io/hostname"
       containers:
       - name: web-app
         image: my-web-app:latest
